@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071a3d">
+<link rel="manifest" href="manifest.json">
+<title>Super 6 Reminder</title>
+
+<style>
+body{
+  margin:0;
+  background:#f3f5f9;
+  color:#101828;
+  font-family:Arial,sans-serif;
+}
+header{
+  background:#071a3d;
+  color:white;
+  padding:28px 20px;
+  border-radius:0 0 25px 25px;
+}
+main{
+  max-width:600px;
+  margin:auto;
+  padding:18px;
+}
+.card{
+  background:white;
+  border-radius:18px;
+  padding:20px;
+  margin-bottom:16px;
+  box-shadow:0 3px 15px #0001;
+}
+h1{margin:0;font-size:28px}
+h2{font-size:19px}
+.deadline{
+  font-size:23px;
+  font-weight:bold;
+}
+.count{
+  font-size:20px;
+  margin-top:10px;
+}
+button{
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border:0;
+  border-radius:12px;
+  font-size:16px;
+  font-weight:bold;
+}
+.primary{
+  background:#0b63ce;
+  color:white;
+}
+.secondary{
+  background:#e7edf6;
+  color:#17345f;
+}
+input[type=datetime-local]{
+  width:100%;
+  padding:12px;
+  box-sizing:border-box;
+  border:1px solid #ccc;
+  border-radius:10px;
+  font-size:16px;
+}
+.small{
+  color:#667085;
+  line-height:1.5;
+}
+.good{
+  color:#16845b;
+  font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>⚽ Super 6 Reminder</h1>
+<p>Never miss your predictions.</p>
+</header>
+
+<main>
+
+<div class="card">
+<h2>Next deadline</h2>
+<div id="deadline" class="deadline">Loading...</div>
+<div id="countdown" class="count">Checking...</div>
+<div id="status"></div>
+</div>
+
+<div class="card">
+<h2>🔔 Reminders</h2>
+
+<p class="small">
+You'll receive reminders at 72 hours, 24 hours and 3 hours before the deadline when notifications are supported.
+</p>
+
+<button class="primary" onclick="enableNotifications()">
+🔔 Enable notifications
+</button>
+
+</div>
+
+<div class="card">
+<h2>✅ Prediction status</h2>
+
+<button class="primary" onclick="submitted()">
+I've submitted my predictions
+</button>
+
+<button class="secondary" onclick="notSubmitted()">
+Not submitted yet
+</button>
+</div>
+
+<div class="card">
+<h2>📅 Deadline</h2>
+
+<p class="small">
+The app uses the published Super 6 deadline where the browser allows it. You can also set it manually as a backup.
+</p>
+
+<input id="manualDeadline" type="datetime-local">
+
+<button class="secondary" onclick="saveDeadline()">
+Save deadline
+</button>
+
+<button class="secondary" onclick="openSky()">
+Open official Super 6
+</button>
+
+</div>
+
+<div class="card">
+<p class="small">
+This is an independent reminder app. It does not ask for your Sky password and cannot submit predictions for you.
+</p>
+</div>
+
+</main>
+
+<script>
+
+const STORAGE_KEY = "super6Reminder";
+
+let data = JSON.parse(
+ localStorage.getItem(STORAGE_KEY) || "null"
+);
+
+if(!data){
+
+ data = {
+   deadline:"2026-08-22T14:00",
+   submitted:false
+ };
+
+ save();
+
+}
+
+function save(){
+
+ localStorage.setItem(
+   STORAGE_KEY,
+   JSON.stringify(data)
+ );
+
+}
+
+function display(){
+
+ const d = new Date(data.deadline);
+
+ document.getElementById("deadline").textContent =
+ d.toLocaleString("en-GB",{
+   weekday:"long",
+   day:"numeric",
+   month:"long",
+   year:"numeric",
+   hour:"2-digit",
+   minute:"2-digit"
+ });
+
+ document.getElementById("manualDeadline").value =
+ data.deadline;
+
+ document.getElementById("status").innerHTML =
+ data.submitted
+ ? '<p class="good">✅ Predictions submitted — reminders paused.</p>'
+ : '<p>🔔 Reminders are active.</p>';
+
+}
+
+function countdown(){
+
+ let difference =
+   new Date(data.deadline).getTime()
+   - Date.now();
+
+ if(difference <= 0){
+
+   document.getElementById("countdown").textContent =
+   "Deadline has passed";
+
+   return;
+
+ }
+
+ let days =
+   Math.floor(difference / 86400000);
+
+ difference %= 86400000;
+
+ let hours =
+   Math.floor(difference / 3600000);
+
+ difference %= 3600000;
+
+ let minutes =
+   Math.floor(difference / 60000);
+
+ document.getElementById("countdown").textContent =
+   days+"d "+hours+"h "+minutes+"m remaining";
+
+}
+
+async function enableNotifications(){
+
+ if(!("Notification" in window)){
+
+   alert(
+    "Notifications aren't supported by this browser."
+   );
+
+   return;
+
+ }
+
+ const permission =
+   await Notification.requestPermission();
+
+ if(permission === "granted"){
+
+   new Notification(
+     "⚽ Super 6 Reminder",
+     {
+       body:"Notifications are now enabled."
+     }
+   );
+
+ }else{
+
+   alert(
+    "Please allow notifications for this site in Chrome."
+   );
+
+ }
+
+}
+
+function submitted(){
+
+ data.submitted = true;
+
+ save();
+
+ display();
+
+}
+
+function notSubmitted(){
+
+ data.submitted = false;
+
+ save();
+
+ display();
+
+}
+
+function saveDeadline(){
+
+ const value =
+   document.getElementById("manualDeadline").value;
+
+ if(value){
+
+   data.deadline = value;
+
+   data.submitted = false;
+
+   save();
+
+   display();
+
+   alert("Deadline saved.");
+
+ }
+
+}
+
+function openSky(){
+
+ window.location.href =
+ "https://super6.skysports.com/";
+
+}
+
+display();
+
+countdown();
+
+setInterval(countdown,30000);
+
+</script>
+
+</body>
+</html>
