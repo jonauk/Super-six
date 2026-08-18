@@ -1,0 +1,9 @@
+{
+  "name": "Super 6 Reminder",
+  "short_name": "Super 6",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f9",
+  "theme_color": "#071a3d",
+  "description": "Never miss your Sky Super 6 predictions."
+}
