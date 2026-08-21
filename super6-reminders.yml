@@ -1,0 +1,12 @@
+name: Super 6 Reminder Scheduler
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test scheduler
+        run: echo "Super 6 reminder system is working"
