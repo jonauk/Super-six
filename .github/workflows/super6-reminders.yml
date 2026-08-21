@@ -1,0 +1,120 @@
+name: Super 6 Reminder Scheduler
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 */3 * * *"
+
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Schedule Super 6 reminders
+        shell: bash
+        run: |
+          set -e
+
+          TOPIC="super6-jonauk-8473926150"
+          NOW=$(date -u +%s)
+
+          echo "Checking Super 6..."
+
+          HTML=$(curl -L -s \
+            -A "Mozilla/5.0" \
+            "https://super6.skysports.com/")
+
+          echo "$HTML" > /tmp/super6.html
+
+          DEADLINE=$(python3 - <<'PY'
+          import re
+          from datetime import datetime, timezone
+
+          text = open("/tmp/super6.html", encoding="utf-8", errors="ignore").read()
+
+          patterns = [
+              r'Round\s+\d+\s*-\s*Deadline\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})\s*@\s*(\d{1,2}):(\d{2})',
+              r'Deadline\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})\s*@\s*(\d{1,2}):(\d{2})'
+          ]
+
+          months = {
+              "Jan":1, "Feb":2, "Mar":3, "Apr":4,
+              "May":5, "Jun":6, "Jul":7, "Aug":8,
+              "Sep":9, "Oct":10, "Nov":11, "Dec":12
+          }
+
+          found = None
+
+          for pattern in patterns:
+              m = re.search(pattern, text, re.I)
+              if m:
+                  day = int(m.group(1))
+                  month = months[m.group(2).title()]
+                  hour = int(m.group(3))
+                  minute = int(m.group(4))
+
+                  now = datetime.now(timezone.utc)
+
+                  # Super 6 displays UK local time.
+                  # Try the current year first.
+                  candidate = datetime(
+                      now.year, month, day, hour, minute
+                  )
+
+                  found = candidate
+                  break
+
+          if not found:
+              raise SystemExit("Could not find the current Super 6 deadline.")
+
+          print(found.strftime("%Y-%m-%dT%H:%M:%S"))
+          PY
+          )
+
+          echo "Detected deadline: $DEADLINE"
+
+          DEADLINE_TS=$(date -d "$DEADLINE" +%s)
+
+          # Convert UK displayed time to UTC correctly using Europe/London.
+          DEADLINE_TS=$(TZ=Europe/London date -d "$(date -d "$DEADLINE" '+%Y-%m-%d %H:%M')" +%s)
+
+          echo "Deadline timestamp: $DEADLINE_TS"
+
+          schedule_reminder() {
+            local OFFSET="$1"
+            local LABEL="$2"
+            local SEQUENCE="$3"
+
+            local TARGET=$((DEADLINE_TS - OFFSET))
+
+            if [ "$TARGET" -le "$NOW" ]; then
+              echo "$LABEL reminder is already due."
+              return
+            fi
+
+            local MAX=$((NOW + 259200))
+
+            if [ "$TARGET" -gt "$MAX" ]; then
+              echo "$LABEL reminder is more than 3 days away."
+              return
+            fi
+
+            echo "Scheduling $LABEL reminder..."
+
+            curl -sS -X POST \
+              -H "At: $TARGET" \
+              -H "Priority: 4" \
+              -H "Title: ⚽ Super 6 Reminder" \
+              -H "Tags: soccer,warning" \
+              -H "Click: https://jonauk.github.io/Super-six/" \
+              --data "Don't forget to submit your Super 6 predictions! Deadline: $DEADLINE" \
+              "https://ntfy.sh/$TOPIC/$SEQUENCE"
+
+            echo
+          }
+
+          schedule_reminder 259200 "72-hour" "72-hour"
+          schedule_reminder 86400 "24-hour" "24-hour"
+          schedule_reminder 10800 "3-hour" "3-hour"
+
+          echo "Super 6 reminder check complete."
