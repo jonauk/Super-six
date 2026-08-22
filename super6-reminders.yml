@@ -3,10 +3,20 @@ name: Super 6 Reminder Scheduler
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: "0 * * * *"
+
 jobs:
-  test:
+  reminder-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test scheduler
-        run: echo "Super 6 reminder system is working"
+      - name: Check scheduler
+        run: |
+          echo "================================="
+          echo "SUPER 6 REMINDER SCHEDULER"
+          echo "================================="
+          echo "Scheduler is working."
+          echo "Current UTC time:"
+          date -u
+          echo "================================="
