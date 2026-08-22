@@ -3,20 +3,21 @@ name: Super 6 Reminder Scheduler
 on:
   workflow_dispatch:
 
-  schedule:
-    - cron: "0 * * * *"
-
 jobs:
-  reminder-test:
+  test-notification:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check scheduler
+      - name: Send test notification to phone
         run: |
-          echo "================================="
-          echo "SUPER 6 REMINDER SCHEDULER"
-          echo "================================="
-          echo "Scheduler is working."
-          echo "Current UTC time:"
-          date -u
-          echo "================================="
+          curl \
+            -H "Title: 🏆 Super 6 Reminder" \
+            -H "Priority: 5" \
+            -H "Tags: soccer,bell" \
+            -H "Click: https://jonauk.github.io/Super-six/" \
+            -d "🔔 TEST SUCCESSFUL!
+
+Your Super 6 reminder system can now send notifications directly to your Android phone.
+
+The proper automatic reminder system comes next." \
+            https://ntfy.sh/thisisatest
