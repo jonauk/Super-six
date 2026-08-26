@@ -1,279 +1,372 @@
-              text,
-              flags=re.I | re.S
-          )
+name: Super 6 Reminder Scheduler
 
-          text = re.sub(
-              r"<style.*?</style>",
-              " ",
-              text,
-              flags=re.I | re.S
-          )
+on:
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Send a test notification now"
+        required: false
+        default: false
+        type: boolean
 
-          text = re.sub(r"<[^>]+>", " ", text)
-          text = re.sub(r"\s+", " ", text)
+  schedule:
+    - cron: "*/15 * * * *"
 
-          patterns = [
-              r"Round\s+(\d+).*?Deadline\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s*@\s*(\d{1,2}):(\d{2})\s*(am|pm)?",
-              r"Deadline\s+(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s*@\s*(\d{1,2}):(\d{2})\s*(am|pm)?"
-          ]
+permissions:
+  contents: write
 
-          found = None
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
 
-          for pattern in patterns:
-              match = re.search(pattern, text, re.I)
+    steps:
 
-              if match:
-                  groups = match.groups()
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-                  if len(groups) == 6:
-                      round_number = groups[0]
-                      day = int(groups[1])
-                      month_name = groups[2]
-                      hour = int(groups[3])
-                      minute = int(groups[4])
-                      ampm = groups[5]
-                  else:
-                      round_number = "unknown"
-                      day = int(groups[0])
-                      month_name = groups[1]
-                      hour = int(groups[2])
-                      minute = int(groups[3])
-                      ampm = groups[4]
+      # ============================================================
+      # TEST NOTIFICATION
+      # ============================================================
 
-                  months = {
-                      "january": 1,
-                      "february": 2,
-                      "march": 3,
-                      "april": 4,
-                      "may": 5,
-                      "june": 6,
-                      "july": 7,
-                      "august": 8,
-                      "september": 9,
-                      "october": 10,
-                      "november": 11,
-                      "december": 12
-                  }
+      - name: Send test notification
+        if: ${{ inputs.test_notification == true }}
+        env:
+          NTFY_TOPIC: s6r-7k29x-p4m83-q91fz
+        run: |
+          set -e
 
-                  month = months.get(month_name.lower())
+          curl -fsS \
+            -X POST \
+            -H "Title: Super 6 Reminder - TEST" \
+            -H "Priority: 5" \
+            -H "Tags: soccer,bell,test" \
+            -H "Click: https://jonauk.github.io/Super-six/" \
+            --data-raw "TEST SUCCESS! Your Super 6 reminder system is working and can reach your Android phone." \
+            "https://ntfy.sh/${NTFY_TOPIC}"
 
-                  if not month:
-                      raise SystemExit(
-                          "ERROR: Unknown month: "
-                          + month_name
-                      )
+          echo "Test notification sent successfully."
 
-                  if ampm:
-                      if ampm.lower() == "pm" and hour != 12:
-                          hour += 12
+      # ============================================================
+      # REAL SUPER 6 REMINDERS
+      # ============================================================
 
-                      if ampm.lower() == "am" and hour == 12:
-                          hour = 0
+      - name: Check Super 6 deadlines
+        if: ${{ inputs.test_notification != true }}
+        env:
+          NTFY_TOPIC: s6r-7k29x-p4m83-q91fz
+        run: |
 
-                  london = ZoneInfo("Europe/London")
-                  now = datetime.now(london)
+          set -e
 
-                  candidate = datetime(
-                      now.year,
-                      month,
-                      day,
-                      hour,
-                      minute,
-                      tzinfo=london
-                  )
-
-                  if candidate.timestamp() < now.timestamp() - 43200:
-                      candidate = candidate.replace(
-                          year=now.year + 1
-                      )
-
-                  found = (
-                      str(round_number),
-                      candidate.isoformat()
-                  )
-
-                  break
-
-          if not found:
-              raise SystemExit(
-                  "ERROR: Could not find the current Super 6 deadline."
-              )
-
-          round_number, deadline = found
-
-          open(".super6/current.txt", "w").write(
-              round_number + "|" + deadline
-          )
-
-          print("Round:", round_number)
-          print("Deadline:", deadline)
-          PY
-
-          IFS='|' read ROUND DEADLINE < .super6/current.txt
-
-          echo "Round: $ROUND"
-          echo "Deadline: $DEADLINE"
+          mkdir -p .super6
 
           python3 <<'PY'
+
           import json
           import os
           import subprocess
           from datetime import datetime, timedelta
           from zoneinfo import ZoneInfo
 
-          state_file = ".super6/reminders.json"
+          # ==========================================================
+          # SUPER 6 SCHEDULE
+          #
+          # Times are UK local times.
+          #
+          # Sky confirms that each Round closes when the first
+          # fixture in that Round kicks off.
+          #
+          # Round 2 is taken from Sky's current live Super 6 page:
+          # 29 August 2026 at 2:00pm.
+          #
+          # The remaining published Round schedule follows Sky's
+          # current 2026/27 terms.
+          # ==========================================================
 
-          with open(".super6/current.txt") as f:
-              round_number, deadline_text = (
-                  f.read().strip().split("|", 1)
+          deadlines = [
+
+              ("Round 2",  "2026-08-29 14:00"),
+              ("Round 3",  "2026-09-05 14:00"),
+              ("Round 4",  "2026-09-08 19:00"),
+              ("Round 5",  "2026-09-12 14:00"),
+              ("Round 6",  "2026-09-15 18:30"),
+              ("Round 7",  "2026-09-19 14:00"),
+
+              ("Round 8",  "2026-10-10 14:00"),
+              ("Round 9",  "2026-10-13 19:00"),
+              ("Round 10", "2026-10-17 14:00"),
+              ("Round 11", "2026-10-20 19:00"),
+              ("Round 12", "2026-10-24 14:00"),
+              ("Round 13", "2026-10-27 18:30"),
+              ("Round 14", "2026-10-31 14:00"),
+
+              ("Round 15", "2026-11-03 20:00"),
+              ("Round 16", "2026-11-07 15:00"),
+              ("Round 17", "2026-11-21 15:00"),
+              ("Round 18", "2026-11-24 20:00"),
+              ("Round 19", "2026-11-28 15:00"),
+          ]
+
+          LONDON = ZoneInfo("Europe/London")
+
+          now = datetime.now(LONDON)
+
+          print("========================================")
+          print("SUPER 6 REMINDER SCHEDULER")
+          print("========================================")
+          print("Current UK time:")
+          print(now.strftime("%A %d %B %Y %H:%M:%S %Z"))
+          print("")
+
+          # ==========================================================
+          # FIND NEXT ROUND
+          # ==========================================================
+
+          upcoming = []
+
+          for round_name, date_text in deadlines:
+
+              local_time = datetime.strptime(
+                  date_text,
+                  "%Y-%m-%d %H:%M"
+              ).replace(
+                  tzinfo=LONDON
               )
 
-          deadline = datetime.fromisoformat(deadline_text)
+              if local_time > now:
+                  upcoming.append(
+                      (round_name, local_time)
+                  )
 
-          now = datetime.now(
-              ZoneInfo("Europe/London")
+          if not upcoming:
+              print("There are no upcoming configured Super 6 rounds.")
+              raise SystemExit(0)
+
+          round_name, deadline = min(
+              upcoming,
+              key=lambda item: item[1]
           )
 
-          offsets = {
-              "72h": timedelta(hours=72),
-              "24h": timedelta(hours=24),
-              "3h": timedelta(hours=3)
-          }
+          print("Next Super 6 round:", round_name)
+          print(
+              "Deadline:",
+              deadline.strftime(
+                  "%A %d %B %Y at %H:%M"
+              )
+          )
+          print("")
 
-          state = {}
+          # ==========================================================
+          # LOAD STATE
+          # ==========================================================
 
-          if os.path.exists(state_file):
-              try:
-                  with open(state_file) as f:
-                      state = json.load(f)
-              except Exception:
-                  state = {}
+          state_file = ".super6/state.json"
 
-          key = (
-              f"round-{round_number}-"
-              f"{deadline.isoformat()}"
+          try:
+              with open(state_file, "r") as f:
+                  state = json.load(f)
+          except Exception:
+              state = {}
+
+          round_key = (
+              round_name
+              + "|"
+              + deadline.isoformat()
           )
 
-          if key not in state:
-              state[key] = {}
+          if round_key not in state:
+              state[round_key] = {}
 
-          for label, offset in offsets.items():
+          # ==========================================================
+          # REMINDER SCHEDULE
+          # ==========================================================
+
+          reminders = [
+
+              (
+                  "72h",
+                  timedelta(hours=72),
+                  "Super 6 - 72 hour reminder",
+                  "4"
+              ),
+
+              (
+                  "24h",
+                  timedelta(hours=24),
+                  "Super 6 - 24 hour reminder",
+                  "4"
+              ),
+
+              (
+                  "3h",
+                  timedelta(hours=3),
+                  "Super 6 - 3 hour warning",
+                  "5"
+              ),
+
+              (
+                  "30m",
+                  timedelta(minutes=30),
+                  "Super 6 - 30 minute warning",
+                  "5"
+              )
+          ]
+
+          # ==========================================================
+          # PROCESS REMINDERS
+          # ==========================================================
+
+          for code, offset, title, priority in reminders:
 
               target = deadline - offset
 
-              if now >= target and now < deadline:
+              print(
+                  f"{code} reminder target: "
+                  f"{target.strftime('%A %d %B %H:%M')}"
+              )
 
-                  if state[key].get(label):
-                      print(label, "already sent.")
-                      continue
+              # Not time yet
+              if now < target:
+                  continue
 
-                  hours_late = (
-                      now - target
-                  ).total_seconds() / 3600
+              # Deadline already passed
+              if now >= deadline:
+                  continue
 
-                  if hours_late > 6:
-                      print(
-                          label,
-                          "was missed by more than 6 hours."
-                      )
+              # Already sent
+              if code in state[round_key]:
+                  print(
+                      f"{code}: already processed"
+                  )
+                  continue
 
-                      state[key][label] = "missed"
-                      continue
+              # GitHub runs every 15 minutes.
+              # Allow up to 45 minutes for a delayed run.
+              lateness = now - target
 
-                  if label == "72h":
-                      title = (
-                          "⚽ Super 6 — "
-                          "72 hour reminder"
-                      )
-                      priority = "4"
+              if lateness > timedelta(minutes=45):
 
-                  elif label == "24h":
-                      title = (
-                          "⚽ Super 6 — "
-                          "24 hour reminder"
-                      )
-                      priority = "4"
+                  print(
+                      f"{code}: reminder missed"
+                  )
 
-                  else:
-                      title = (
-                          "🚨 Super 6 — "
-                          "3 hour warning"
-                      )
-                      priority = "5"
+                  state[round_key][code] = "missed"
 
-                  message = (
-                      f"Round {round_number}: "
-                      f"don't forget your Super 6 "
-                      f"predictions! Deadline: "
-                      f"{deadline.strftime('%A %d %B at %H:%M')}."
+                  continue
+
+              # ======================================================
+              # BUILD NOTIFICATION
+              # ======================================================
+
+              deadline_text = deadline.strftime(
+                  "%A %d %B at %H:%M"
+              )
+
+              message = (
+                  f"{round_name}\n\n"
+                  "Don't forget to put your Super 6 predictions on!\n\n"
+                  f"Deadline: {deadline_text}\n\n"
+                  "Tap this notification to open Super 6."
+              )
+
+              print(
+                  f"Sending {code} notification..."
+              )
+
+              result = subprocess.run(
+                  [
+                      "curl",
+                      "-fsS",
+                      "-X",
+                      "POST",
+
+                      "-H",
+                      f"Title: {title}",
+
+                      "-H",
+                      f"Priority: {priority}",
+
+                      "-H",
+                      "Tags: soccer,bell,warning",
+
+                      "-H",
+                      "Click: https://jonauk.github.io/Super-six/",
+
+                      "--data-raw",
+                      message,
+
+                      f"https://ntfy.sh/{os.environ['NTFY_TOPIC']}"
+                  ],
+                  capture_output=True,
+                  text=True
+              )
+
+              if result.returncode != 0:
+
+                  print(
+                      "Notification error:"
                   )
 
                   print(
-                      "Sending",
-                      label,
-                      "notification..."
+                      result.stderr
                   )
 
-                  result = subprocess.run(
-                      [
-                          "curl",
-                          "-sS",
-                          "-X",
-                          "POST",
-                          "-H",
-                          f"Title: {title}",
-                          "-H",
-                          f"Priority: {priority}",
-                          "-H",
-                          "Tags: soccer,warning",
-                          "-H",
-                          "Click: https://jonauk.github.io/Super-six/",
-                          "-d",
-                          message,
-                          "https://ntfy.sh/"
-                          + os.environ["NTFY_TOPIC"]
-                      ],
-                      capture_output=True,
-                      text=True
+                  raise SystemExit(
+                      "Failed to send ntfy notification."
                   )
 
-                  if result.returncode != 0:
-                      raise SystemExit(
-                          "ntfy notification failed: "
-                          + result.stderr
-                      )
+              print(
+                  f"{code}: notification sent successfully."
+              )
 
-                  print(result.stdout)
+              state[round_key][code] = now.isoformat()
 
-                  state[key][label] = now.isoformat()
+          # ==========================================================
+          # KEEP STATE FILE SMALL
+          # ==========================================================
 
-          if len(state) > 20:
+          if len(state) > 30:
+
               keys = list(state.keys())
 
-              for old_key in keys[:-20]:
+              for old_key in keys[:-30]:
                   del state[old_key]
 
           with open(state_file, "w") as f:
+
               json.dump(
                   state,
                   f,
                   indent=2
               )
 
+          print("")
+          print("Scheduler completed successfully.")
+
           PY
+
+      # ============================================================
+      # SAVE REMINDER STATE
+      # ============================================================
 
       - name: Save reminder state
         if: ${{ inputs.test_notification != true }}
-        shell: bash
         run: |
+
           git config user.name "Super 6 Reminder"
           git config user.email "super6-reminder@users.noreply.github.com"
 
-          git add .super6/reminders.json
+          git add .super6/state.json
 
           if git diff --cached --quiet; then
-            echo "No reminder state changes."
+
+              echo "No reminder state changes."
+
           else
-            git commit -m "Update Super 6 reminder state"
-            git push
+
+              git commit \
+                -m "Update Super 6 reminder state"
+
+              git push
+
           fi
