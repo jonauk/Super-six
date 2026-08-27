@@ -86,7 +86,8 @@ button{
   margin-top:10px;
   font-size:17px;
   font-weight:700;
-  cursor:pointer
+  cursor:pointer;
+  touch-action:manipulation
 }
 
 .primary{
@@ -144,7 +145,7 @@ Set the next deadline below.
 <h2>🔔 Reminders</h2>
 
 <p class="small">
-Enable browser notifications on this phone. Your scheduled Super 6 reminders are sent separately by the reminder service.
+Enable notifications on this phone. Your scheduled Super 6 reminders are sent separately by the reminder service.
 </p>
 
 <button class="primary" id="enableBtn">
@@ -358,6 +359,18 @@ el.textContent=
 }
 
 
+/*
+ ENABLE NOTIFICATIONS
+
+ This version only requests permission.
+ It does NOT try to create a browser notification,
+ because Android Chrome can reject the old
+ "new Notification()" method.
+
+ The actual scheduled reminders continue to use
+ the working ntfy system.
+*/
+
 document
 .getElementById("enableBtn")
 .addEventListener(
@@ -367,7 +380,7 @@ async()=>{
 if(!("Notification" in window)){
 
 showMessage(
-"Chrome on this device does not support browser notifications here."
+"Notifications are not supported by Chrome on this device."
 );
 
 return;
@@ -377,60 +390,36 @@ return;
 
 try{
 
-const permission=
+const permission =
 await Notification.requestPermission();
 
 
-if(permission==="granted"){
-
-if ("serviceWorker" in navigator) {
-
-  const registration =
-    await navigator.serviceWorker.ready;
-
-  await registration.showNotification(
-    "⚽ Super 6 Reminder",
-    {
-      body:
-      "Notifications are enabled successfully.",
-      icon:
-      "./icon-192.png",
-      badge:
-      "./icon-192.png"
-    }
-  );
-
-  showMessage(
-    "Notifications enabled — test notification sent.",
-    true
-  );
-
-} else {
-
-  showMessage(
-    "Your browser does not support service-worker notifications."
-  );
-
-}
+if(permission === "granted"){
 
 showMessage(
-"Notifications enabled — test notification sent.",
+"✅ Notifications are enabled on this phone.",
 true
+);
+
+}else if(permission === "denied"){
+
+showMessage(
+"⚠️ Notifications are blocked. Open Chrome site settings and allow notifications."
 );
 
 }else{
 
 showMessage(
-"Notifications were not allowed. Check Chrome/site notification permissions."
+"Notifications were not enabled."
 );
 
 }
 
-}catch(e){
+}catch(error){
 
 showMessage(
 "Could not enable notifications: "
-+e.message
++error.message
 );
 
 }
@@ -438,6 +427,10 @@ showMessage(
 }
 );
 
+
+/*
+ PREDICTIONS SUBMITTED
+*/
 
 document
 .getElementById("submittedBtn")
@@ -460,6 +453,10 @@ true
 );
 
 
+/*
+ NOT SUBMITTED
+*/
+
 document
 .getElementById("notSubmittedBtn")
 .addEventListener(
@@ -480,6 +477,10 @@ true
 }
 );
 
+
+/*
+ SAVE DEADLINE
+*/
 
 document
 .getElementById("saveDeadlineBtn")
@@ -520,6 +521,10 @@ true
 }
 );
 
+
+/*
+ OPEN OFFICIAL SUPER 6
+*/
 
 document
 .getElementById("openSkyBtn")
