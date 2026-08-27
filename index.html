@@ -1,18 +1,116 @@
-input[type=datetime-local]{
-  width:100%;
-  padding:12px;
-  box-sizing:border-box;
-  border:1px solid #ccc;
-  border-radius:10px;
-  font-size:16px;
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1769d1">
+<title>Super 6 Reminder</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:#f3f5f9;
+  color:#16233d;
+  font-family:Arial,Helvetica,sans-serif
 }
-.small{
-  color:#667085;
-  line-height:1.5;
+
+header{
+  background:#102b57;
+  color:#fff;
+  padding:28px 20px
 }
+
+header h1{
+  margin:0 0 8px;
+  font-size:30px
+}
+
+header p{
+  margin:0;
+  opacity:.9
+}
+
+main{
+  max-width:700px;
+  margin:18px auto;
+  padding:0 14px 40px
+}
+
+.card{
+  background:#fff;
+  border-radius:24px;
+  padding:24px;
+  margin:16px 0;
+  box-shadow:0 3px 18px rgba(0,0,0,.08)
+}
+
+h2{
+  margin:0 0 16px;
+  font-size:25px
+}
+
+.deadline{
+  font-size:27px;
+  font-weight:700;
+  line-height:1.25
+}
+
+.count{
+  font-size:18px;
+  margin-top:10px;
+  color:#667085
+}
+
 .good{
   color:#16845b;
-  font-weight:bold;
+  font-weight:700
+}
+
+.warn{
+  color:#b54708;
+  font-weight:700
+}
+
+.small{
+  color:#667085;
+  line-height:1.5
+}
+
+button{
+  width:100%;
+  border:0;
+  border-radius:14px;
+  padding:16px;
+  margin-top:10px;
+  font-size:17px;
+  font-weight:700;
+  cursor:pointer
+}
+
+.primary{
+  background:#1769d1;
+  color:#fff
+}
+
+.secondary{
+  background:#e8edf7;
+  color:#17345f
+}
+
+input[type=datetime-local]{
+  width:100%;
+  padding:14px;
+  border:1px solid #ccc;
+  border-radius:12px;
+  font-size:16px
+}
+
+#message{
+  display:none;
+  padding:12px 0;
+  font-weight:600
 }
 </style>
 </head>
@@ -26,111 +124,405 @@ input[type=datetime-local]{
 
 <main>
 
-<div class="card">
+<section class="card">
 <h2>Next deadline</h2>
-<div id="deadline" class="deadline">Loading...</div>
-<div id="countdown" class="count">Checking...</div>
-<div id="status"></div>
+
+<div id="deadline" class="deadline">
+No deadline set
 </div>
 
-<div class="card">
+<div id="countdown" class="count">
+Set the next deadline below.
+</div>
+
+<div id="status"></div>
+</section>
+
+
+<section class="card">
+
 <h2>🔔 Reminders</h2>
 
 <p class="small">
-You'll receive reminders at 72 hours, 24 hours and 3 hours before the deadline when notifications are supported.
+Enable browser notifications on this phone. Your scheduled Super 6 reminders are sent separately by the reminder service.
 </p>
 
-<button class="primary" onclick="enableNotifications()">
+<button class="primary" id="enableBtn">
 🔔 Enable notifications
 </button>
 
-</div>
+<div id="message"></div>
 
-<div class="card">
+</section>
+
+
+<section class="card">
+
 <h2>✅ Prediction status</h2>
 
-<button class="primary" onclick="submitted()">
+<button class="primary" id="submittedBtn">
 I've submitted my predictions
 </button>
 
-<button class="secondary" onclick="notSubmitted()">
+<button class="secondary" id="notSubmittedBtn">
 Not submitted yet
 </button>
-</div>
 
-<div class="card">
+</section>
+
+
+<section class="card">
+
 <h2>📅 Deadline</h2>
 
 <p class="small">
-The app uses the published Super 6 deadline where the browser allows it. You can also set it manually as a backup.
+Enter the next Super 6 deadline here. This also lets you handle midweek rounds as well as weekend rounds.
 </p>
 
 <input id="manualDeadline" type="datetime-local">
 
-<button class="secondary" onclick="saveDeadline()">
+<button class="secondary" id="saveDeadlineBtn">
 Save deadline
 </button>
 
-<button class="secondary" onclick="openSky()">
+<button class="secondary" id="openSkyBtn">
 Open official Super 6
 </button>
 
-</div>
+</section>
 
-<div class="card">
+
+<section class="card">
+
 <p class="small">
 This is an independent reminder app. It does not ask for your Sky password and cannot submit predictions for you.
 </p>
-</div>
+
+</section>
 
 </main>
 
+
 <script>
 
-const STORAGE_KEY = "super6Reminder";
+const STORAGE_KEY="super6Reminder";
 
-let data = JSON.parse(
- localStorage.getItem(STORAGE_KEY) || "null"
-);
+let data;
 
-if(!data){
+try{
 
- data = {
-   deadline:"2026-08-22T14:00",
-   submitted:false
- };
+data=JSON.parse(
+localStorage.getItem(STORAGE_KEY)||"null"
+)||{
+deadline:"",
+submitted:false
+};
 
- save();
+}catch(e){
+
+data={
+deadline:"",
+submitted:false
+};
 
 }
+
 
 function save(){
 
- localStorage.setItem(
-   STORAGE_KEY,
-   JSON.stringify(data)
- );
+localStorage.setItem(
+STORAGE_KEY,
+JSON.stringify(data)
+);
 
 }
 
+
+function showMessage(text,good=false){
+
+const el=document.getElementById("message");
+
+el.textContent=text;
+
+el.style.display="block";
+
+el.className=good?"good":"warn";
+
+}
+
+
 function display(){
 
- const d = new Date(data.deadline);
+const d=data.deadline
+?new Date(data.deadline)
+:null;
 
- document.getElementById("deadline").textContent =
- d.toLocaleString("en-GB",{
-   weekday:"long",
-   day:"numeric",
-   month:"long",
-   year:"numeric",
-   hour:"2-digit",
-   minute:"2-digit"
- });
+const deadlineEl=
+document.getElementById("deadline");
 
- document.getElementById("manualDeadline").value =
- data.deadline;
+const countEl=
+document.getElementById("countdown");
 
- document.getElementById("status").innerHTML =
- data.submitted
- ? '<p class="good">✅ Predictions submitted — reminders paused.</p>'
- : '<p>🔔 Reminders
+const statusEl=
+document.getElementById("status");
+
+const input=
+document.getElementById("manualDeadline");
+
+
+if(!d||Number.isNaN(d.getTime())){
+
+deadlineEl.textContent="No deadline set";
+
+countEl.textContent=
+"Set the next deadline below.";
+
+statusEl.innerHTML="";
+
+input.value="";
+
+return;
+
+}
+
+
+deadlineEl.textContent=
+d.toLocaleString(
+"en-GB",
+{
+weekday:"long",
+day:"numeric",
+month:"long",
+year:"numeric",
+hour:"2-digit",
+minute:"2-digit"
+}
+);
+
+
+input.value=data.deadline;
+
+
+statusEl.innerHTML=
+data.submitted
+
+?'<p class="good">✅ Predictions submitted — reminders paused.</p>'
+
+:'<p>🔔 Predictions not marked as submitted.</p>';
+
+
+updateCountdown();
+
+}
+
+
+function updateCountdown(){
+
+if(!data.deadline)return;
+
+const d=new Date(data.deadline);
+
+const now=new Date();
+
+const diff=d-now;
+
+const el=
+document.getElementById("countdown");
+
+
+if(diff<=0){
+
+el.textContent="Deadline has passed";
+
+return;
+
+}
+
+
+const total=
+Math.floor(diff/1000);
+
+const days=
+Math.floor(total/86400);
+
+const hours=
+Math.floor((total%86400)/3600);
+
+const mins=
+Math.floor((total%3600)/60);
+
+
+el.textContent=
+`${days}d ${hours}h ${mins}m remaining`;
+
+}
+
+
+document
+.getElementById("enableBtn")
+.addEventListener(
+"click",
+async()=>{
+
+if(!("Notification" in window)){
+
+showMessage(
+"Chrome on this device does not support browser notifications here."
+);
+
+return;
+
+}
+
+
+try{
+
+const permission=
+await Notification.requestPermission();
+
+
+if(permission==="granted"){
+
+new Notification(
+"⚽ Super 6 Reminder",
+{
+body:
+"Notifications are enabled successfully."
+}
+);
+
+showMessage(
+"Notifications enabled — test notification sent.",
+true
+);
+
+}else{
+
+showMessage(
+"Notifications were not allowed. Check Chrome/site notification permissions."
+);
+
+}
+
+}catch(e){
+
+showMessage(
+"Could not enable notifications: "
++e.message
+);
+
+}
+
+}
+);
+
+
+document
+.getElementById("submittedBtn")
+.addEventListener(
+"click",
+()=>{
+
+data.submitted=true;
+
+save();
+
+display();
+
+showMessage(
+"Predictions marked as submitted. Reminders paused.",
+true
+);
+
+}
+);
+
+
+document
+.getElementById("notSubmittedBtn")
+.addEventListener(
+"click",
+()=>{
+
+data.submitted=false;
+
+save();
+
+display();
+
+showMessage(
+"Prediction status changed to not submitted.",
+true
+);
+
+}
+);
+
+
+document
+.getElementById("saveDeadlineBtn")
+.addEventListener(
+"click",
+()=>{
+
+const value=
+document.getElementById(
+"manualDeadline"
+).value;
+
+
+if(!value){
+
+showMessage(
+"Please choose a date and time first."
+);
+
+return;
+
+}
+
+
+data.deadline=value;
+
+data.submitted=false;
+
+save();
+
+display();
+
+showMessage(
+"Deadline saved.",
+true
+);
+
+}
+);
+
+
+document
+.getElementById("openSkyBtn")
+.addEventListener(
+"click",
+()=>{
+
+window.open(
+"https://super6.skysports.com/",
+"_blank",
+"noopener"
+);
+
+}
+);
+
+
+display();
+
+setInterval(
+updateCountdown,
+30000
+);
+
+</script>
+
+</body>
+</html>
