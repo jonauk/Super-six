@@ -383,13 +383,35 @@ await Notification.requestPermission();
 
 if(permission==="granted"){
 
-new Notification(
-"⚽ Super 6 Reminder",
-{
-body:
-"Notifications are enabled successfully."
+if ("serviceWorker" in navigator) {
+
+  const registration =
+    await navigator.serviceWorker.ready;
+
+  await registration.showNotification(
+    "⚽ Super 6 Reminder",
+    {
+      body:
+      "Notifications are enabled successfully.",
+      icon:
+      "./icon-192.png",
+      badge:
+      "./icon-192.png"
+    }
+  );
+
+  showMessage(
+    "Notifications enabled — test notification sent.",
+    true
+  );
+
+} else {
+
+  showMessage(
+    "Your browser does not support service-worker notifications."
+  );
+
 }
-);
 
 showMessage(
 "Notifications enabled — test notification sent.",
