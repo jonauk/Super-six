@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set Super 6 deadline
+      - name: Find next Super 6 deadline
         run: |
           mkdir -p .super6
 
@@ -34,7 +34,6 @@ jobs:
           now = datetime.now(ZoneInfo("Europe/London"))
 
           rounds = [
-              (2, "2026-08-29T14:00:00+01:00"),
               (3, "2026-09-05T15:00:00+01:00"),
               (4, "2026-09-08T20:00:00+01:00"),
               (5, "2026-09-12T15:00:00+01:00"),
@@ -54,24 +53,27 @@ jobs:
               (19, "2026-11-28T15:00:00+00:00")
           ]
 
-          for number, date in rounds:
-              deadline = datetime.fromisoformat(date)
+          for number, value in rounds:
+              deadline = datetime.fromisoformat(value)
 
               if deadline > now:
                   with open(".super6/current.json", "w") as f:
-                      json.dump({
-                          "round": number,
-                          "deadline": date
-                      }, f)
+                      json.dump(
+                          {
+                              "round": number,
+                              "deadline": value
+                          },
+                          f
+                      )
 
-                  print("Round:", number)
-                  print("Deadline:", date)
+                  print(f"Next round: {number}")
+                  print(f"Deadline: {value}")
                   break
           else:
               raise SystemExit("No future Super 6 round found.")
           PY
 
-      - name: Send reminders
+      - name: Send one-hour reminder
         env:
           NTFY_TOPIC: s6r-7k29x-p4m83-q91fz
           TEST_NOTIFICATION: ${{ inputs.test_notification }}
@@ -97,22 +99,35 @@ jobs:
           try:
               with open(state_file) as f:
                   state = json.load(f)
-          except Exception:
+          except (FileNotFoundError, json.JSONDecodeError):
               state = {}
 
           key = f"round-{round_number}-{deadline.isoformat()}"
           state.setdefault(key, {})
 
-          def send(title, message, priority="4"):
-              result = subprocess.run([
-                  "curl", "-f", "-sS", "-X", "POST",
-                  "-H", f"Title: {title}",
-                  "-H", f"Priority: {priority}",
-                  "-H", "Tags: soccer,warning",
-                  "-H", "Click: https://jonauk.github.io/Super-six/",
-                  "-d", message,
-                  f"https://ntfy.sh/{os.environ['NTFY_TOPIC']}"
-              ], capture_output=True, text=True)
+          def send(title, message):
+              result = subprocess.run(
+                  [
+                      "curl",
+                      "-f",
+                      "-sS",
+                      "-X",
+                      "POST",
+                      "-H",
+                      f"Title: {title}",
+                      "-H",
+                      "Priority: 5",
+                      "-H",
+                      "Tags: soccer,warning",
+                      "-H",
+                      "Click: https://jonauk.github.io/Super-six/",
+                      "-d",
+                      message,
+                      f"https://ntfy.sh/{os.environ['NTFY_TOPIC']}"
+                  ],
+                  capture_output=True,
+                  text=True
+              )
 
               if result.returncode != 0:
                   raise SystemExit(result.stderr)
@@ -122,64 +137,29 @@ jobs:
           if os.environ.get("TEST_NOTIFICATION") == "true":
               send(
                   "⚽ Super 6 Reminder Test",
-                  "Super 6 reminder notifications are working!",
-                  "5"
+                  "Super 6 reminder notifications are working!"
               )
 
-          reminders = {
-    "1h": timedelta(hours=1)
-}
-          
+          target = deadline - timedelta(hours=1)
 
-          for label, offset in reminders.items():
+          print("Current time:", now)
+          print("Reminder target:", target)
+          print("Deadline:", deadline)
 
-              target = deadline - offset
-
-              print(label, "target:", target)
-              print("Current time:", now)
-
-              if now < target:
-                  continue
-
-              if now >= deadline:
-                  continue
-
-              if state[key].get(label):
-                  continue
-
-              late_hours = (
-                  now - target
-              ).total_seconds() / 3600
-
-              if late_hours > 6:
-                  state[key][label] = "missed"
-                  continue
-
-              title = "⚽ Super 6 — 1 hour reminder"
-priority = "5"
-                  title = "⚽ Super 6 — 72 hour reminder"
-                  priority = "4"
-              elif label == "24h":
-                  title = "⚽ Super 6 — 24 hour reminder"
-                  priority = "4"
-              else:
-                  title = "🚨 Super 6 — 3 hour warning"
-                  priority = "5"
-
-              message = (
-                  f"Round {round_number}: don't forget "
-                  f"your Super 6 predictions! "
-                  f"Deadline: "
-                  f"{deadline.strftime('%A %d %B at %H:%M')}."
+          if target <= now < deadline and not state[key].get("1h"):
+              send(
+                  "⚽ Super 6 — 1 hour reminder",
+                  f"Round {round_number}: don't forget your Super 6 predictions! "
+                  f"Deadline: {deadline.strftime('%A %d %B at %H:%M')}."
               )
 
-              send(title, message, priority)
+              state[key]["1h"] = now.isoformat()
 
-              state[key][label] = now.isoformat()
+          else:
+              print("No one-hour reminder due.")
 
           with open(state_file, "w") as f:
               json.dump(state, f, indent=2)
-
           PY
 
       - name: Save reminder state
@@ -195,7 +175,3 @@ priority = "5"
             git commit -m "Update Super 6 reminder state"
             git push
           fi
-          
-
-
-          
