@@ -127,10 +127,9 @@ jobs:
               )
 
           reminders = {
-              "72h": timedelta(hours=72),
-              "24h": timedelta(hours=24),
-              "3h": timedelta(hours=3)
-          }
+    "1h": timedelta(hours=1)
+}
+          
 
           for label, offset in reminders.items():
 
@@ -156,7 +155,8 @@ jobs:
                   state[key][label] = "missed"
                   continue
 
-              if label == "72h":
+              title = "⚽ Super 6 — 1 hour reminder"
+priority = "5"
                   title = "⚽ Super 6 — 72 hour reminder"
                   priority = "4"
               elif label == "24h":
