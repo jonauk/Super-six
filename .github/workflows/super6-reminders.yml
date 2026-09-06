@@ -57,14 +57,16 @@ jobs:
               deadline = datetime.fromisoformat(value)
 
               if deadline > now:
-                  with open(".super6/current.json", "w") as f:
-                      json.dump(
-                          {
-                              "round": number,
-                              "deadline": value
-                          },
-                          f
-                      )
+                  current = {
+    "round": number,
+    "deadline": value
+}
+
+with open("current.json", "w") as f:
+    json.dump(current, f, indent=2)
+
+with open(".super6/current.json", "w") as f:
+    json.dump(current, f, indent=2)
 
                   print(f"Next round: {number}")
                   print(f"Deadline: {value}")
