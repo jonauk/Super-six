@@ -167,7 +167,7 @@ jobs:
           git config user.name "Super 6 Reminder"
           git config user.email "super6-reminder@users.noreply.github.com"
 
-          git add current.json .super6/reminders.json
+          git add -f current.json .super6/reminders.json
 
           if git diff --cached --quiet; then
             echo "No reminder state changes."
